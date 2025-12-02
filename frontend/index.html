@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Provesi - Gestión de Inventario y Pedidos</title>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .auth-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .auth-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .user-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-success {
+            background: #27ae60;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .result-box {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            min-height: 100px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-box pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+        }
+
+        .time-display {
+            font-weight: bold;
+            color: #27ae60;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .time-display.slow {
+            color: #e74c3c;
+        }
+
+        .time-display.fast {
+            color: #27ae60;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-error {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .status-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .order-selector {
+            margin-bottom: 20px;
+        }
+
+        .order-selector select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 300px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ Provesi - Gestión de Insumos de Seguridad</h1>
+        <p class="subtitle">Sistema de Inventario y Pedidos con CQRS y RBAC</p>
+
+        <!-- Sección de Autenticación -->
+        <div class="auth-section">
+            <div class="auth-info">
+                <div class="user-info">
+                    <span id="auth-status">No autenticado</span>
+                    <span id="user-rol" class="status-badge hidden"></span>
+                </div>
+                <div>
+                    <button id="login-btn" onclick="login()">Iniciar Sesión</button>
+                    <button id="logout-btn" onclick="logout()" class="hidden">Cerrar Sesión</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección 1: ASR Latencia (CQRS) -->
+        <div class="section">
+            <h2>📊 ASR 1: Latencia - Consulta de Inventario</h2>
+            <p>Comparación entre consulta SQL (lenta) y NoSQL (rápida con CQRS)</p>
+            
+            <div class="test-buttons">
+                <button onclick="testSqlQuery()" id="sql-btn">Consulta Lenta (PostgreSQL)</button>
+                <button onclick="testNoSqlQuery()" id="nosql-btn">Consulta Rápida (MongoDB/CQRS)</button>
+            </div>
+
+            <div id="latency-result" class="result-box hidden">
+                <div id="latency-time" class="time-display"></div>
+                <pre id="latency-data"></pre>
+            </div>
+        </div>
+
+        <!-- Sección 2: ASR Seguridad (RBAC) -->
+        <div class="section">
+            <h2>🔒 ASR 2: Seguridad - Manipulación de Pedidos</h2>
+            <p>Control de acceso basado en roles (RBAC) - Solo GESTOR puede modificar/eliminar ítems</p>
+
+            <div class="order-selector">
+                <label>Seleccionar Pedido:</label>
+                <select id="order-select" onchange="loadOrder()">
+                    <option value="">-- Seleccionar --</option>
+                </select>
+                <button onclick="createTestOrder()">Crear Pedido de Prueba</button>
+            </div>
+
+            <div id="order-details" class="hidden">
+                <h3>Ítems del Pedido</h3>
+                <table id="items-table">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unit.</th>
+                            <th>Subtotal</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-tbody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="security-result" class="result-box hidden">
+                <div id="security-time" class="time-display"></div>
+                <pre id="security-data"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auth0 Configuration
+        // ACTUALIZAR ESTAS VARIABLES CON LOS VALORES DE AWS DESPUÉS DEL DESPLIEGUE
+        const auth0Config = {
+            domain: 'dev-5i7sgc4uvmc63uai.us.auth0.com', // ✅ Ya configurado
+            clientId: '8VzOmIn8oNHOtB7W9z3urBaWNV4HUkqi', // ✅ Ya configurado
+            authorizationParams: {
+                audience: 'https://api.provesi.com',
+                redirect_uri: window.location.origin
+            }
+        };
+
+        let auth0Client = null;
+        let accessToken = null;
+        let userRole = null;
+
+        // Service URLs - ACTUALIZAR CON LAS IPs PÚBLICAS DE AWS EC2
+        // Obtener estas IPs después de ejecutar: terraform output
+        const AUTH_SERVICE_URL = 'http://<AUTH_SERVICE_IP>:3000'; // Reemplazar <AUTH_SERVICE_IP>
+        const INVENTORY_SERVICE_URL = 'http://<INVENTORY_SERVICE_IP>:8000'; // Reemplazar <INVENTORY_SERVICE_IP>
+        const ORDERS_SERVICE_URL = 'http://<ORDERS_SERVICE_IP>:8001'; // Reemplazar <ORDERS_SERVICE_IP>
+
+        // Initialize Auth0
+        async function initAuth0() {
+            try {
+                auth0Client = await auth0.createAuth0Client(auth0Config);
+                await checkAuth();
+            } catch (error) {
+                console.error('Error initializing Auth0:', error);
+            }
+        }
+
+        // Check authentication status
+        async function checkAuth() {
+            try {
+                const isAuthenticated = await auth0Client.isAuthenticated();
+                
+                if (isAuthenticated) {
+                    const user = await auth0Client.getUser();
+                    accessToken = await auth0Client.getTokenSilently();
+                    
+                    // Decode token to get role
+                    const payload = JSON.parse(atob(accessToken.split('.')[1]));
+                    userRole = payload['https://provesi.com/rol'] || payload.rol || 'UNKNOWN';
+                    
+                    document.getElementById('auth-status').textContent = `Autenticado: ${user.email || user.name}`;
+                    document.getElementById('user-rol').textContent = `Rol: ${userRole}`;
+                    document.getElementById('user-rol').classList.remove('hidden');
+                    document.getElementById('user-rol').className = 'status-badge ' + (userRole === 'GESTOR' ? 'status-success' : 'status-warning');
+                    
+                    document.getElementById('login-btn').classList.add('hidden');
+                    document.getElementById('logout-btn').classList.remove('hidden');
+                } else {
+                    document.getElementById('auth-status').textContent = 'No autenticado';
+                    document.getElementById('user-rol').classList.add('hidden');
+                    document.getElementById('login-btn').classList.remove('hidden');
+                    document.getElementById('logout-btn').classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error checking auth:', error);
+            }
+        }
+
+        // Login
+        async function login() {
+            try {
+                await auth0Client.loginWithRedirect();
+            } catch (error) {
+                console.error('Login error:', error);
+            }
+        }
+
+        // Logout
+        async function logout() {
+            try {
+                await auth0Client.logout({
+                    logoutParams: {
+                        returnTo: window.location.origin
+                    }
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+
+        // Test SQL Query (Slow)
+        async function testSqlQuery() {
+            const resultBox = document.getElementById('latency-result');
+            const timeDisplay = document.getElementById('latency-time');
+            const dataDisplay = document.getElementById('latency-data');
+            
+            resultBox.classList.remove('hidden');
+            timeDisplay.textContent = 'Cargando...';
+            dataDisplay.textContent = '';
+            
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch(`${INVENTORY_SERVICE_URL}/api/v1/inventory/sql-list`);
+                const data = await response.json();
+                
+                const elapsedTime = performance.now() - startTime;
+                
+                timeDisplay.textContent = `Tiempo de respuesta: ${elapsedTime.toFixed(2)} ms (${data.elapsed_time_ms} ms en servidor)`;
+                timeDisplay.className = 'time-display ' + (elapsedTime > 2000 ? 'slow' : 'fast');
+                
+                dataDisplay.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                timeDisplay.textContent = 'Error: ' + error.message;
+                timeDisplay.className = 'time-display slow';
+                dataDisplay.textContent = error.toString();
+            }
+        }
+
+        // Test NoSQL Query (Fast - CQRS)
+        async function testNoSqlQuery() {
+            const resultBox = document.getElementById('latency-result');
+            const timeDisplay = document.getElementById('latency-time');
+            const dataDisplay = document.getElementById('latency-data');
+            
+            resultBox.classList.remove('hidden');
+            timeDisplay.textContent = 'Cargando...';
+            dataDisplay.textContent = '';
+            
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch(`${INVENTORY_SERVICE_URL}/api/v1/inventory/nosql-list`);
+                const data = await response.json();
+                
+                const elapsedTime = performance.now() - startTime;
+                
+                timeDisplay.textContent = `Tiempo de respuesta: ${elapsedTime.toFixed(2)} ms (${data.elapsed_time_ms} ms en servidor)`;
+                timeDisplay.className = 'time-display ' + (elapsedTime < 2000 ? 'fast' : 'slow');
+                
+                dataDisplay.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                timeDisplay.textContent = 'Error: ' + error.message;
+                timeDisplay.className = 'time-display slow';
+                dataDisplay.textContent = error.toString();
+            }
+        }
+
+        // Create test order
+        async function createTestOrder() {
+            if (!accessToken) {
+                alert('Debe autenticarse primero');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${ORDERS_SERVICE_URL}/api/v1/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        customer_name: 'Cliente de Prueba',
+                        customer_email: 'cliente@test.com',
+                        customer_company: 'Empresa Test',
+                        items: [
+                            {
+                                product_sku: 'GLOVE-001',
+                                product_name: 'Guantes de Seguridad',
+                                quantity: 10,
+                                unit_price: 15.50
+                            },
+                            {
+                                product_sku: 'SIGN-001',
+                                product_name: 'Señalización de Seguridad',
+                                quantity: 5,
+                                unit_price: 25.00
+                            }
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert(`Pedido creado: ${data.order_number}`);
+                    loadOrders();
+                } else {
+                    alert('Error: ' + (data.error || 'Error desconocido'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Load orders list
+        async function loadOrders() {
+            try {
+                const response = await fetch(`${ORDERS_SERVICE_URL}/api/v1/orders/list`);
+                const data = await response.json();
+                
+                const select = document.getElementById('order-select');
+                select.innerHTML = '<option value="">-- Seleccionar --</option>';
+                
+                data.orders.forEach(order => {
+                    const option = document.createElement('option');
+                    option.value = order.id;
+                    option.textContent = `${order.order_number} - ${order.customer_name} (${order.status})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+
+        // Load order details
+        async function loadOrder() {
+            const orderId = document.getElementById('order-select').value;
+            if (!orderId) {
+                document.getElementById('order-details').classList.add('hidden');
+                return;
+            }
+
+            if (!accessToken) {
+                alert('Debe autenticarse primero');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${ORDERS_SERVICE_URL}/api/v1/orders/${orderId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const order = await response.json();
+                
+                const tbody = document.getElementById('items-tbody');
+                tbody.innerHTML = '';
+                
+                order.items.forEach(item => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${item.product_sku}</td>
+                        <td>${item.product_name}</td>
+                        <td>${item.quantity}</td>
+                        <td>$${item.unit_price}</td>
+                        <td>$${item.subtotal}</td>
+                        <td><span class="status-badge status-${item.status === 'AVAILABLE' ? 'success' : 'warning'}">${item.status}</span></td>
+                        <td>
+                            <button onclick="updateItemStatus(${order.id}, ${item.id}, 'UNAVAILABLE')" class="btn-danger">Marcar No Disponible</button>
+                            <button onclick="deleteItem(${order.id}, ${item.id})" class="btn-danger">Eliminar Ítem</button>
+                        </td>
+                    `;
+                });
+                
+                document.getElementById('order-details').classList.remove('hidden');
+            } catch (error) {
+                alert('Error cargando pedido: ' + error.message);
+            }
+        }
+
+        // Update item status (requires GESTOR role)
+        async function updateItemStatus(orderId, itemId, newStatus) {
+            if (!accessToken) {
+                alert('Debe autenticarse primero');
+                return;
+            }
+
+            const resultBox = document.getElementById('security-result');
+            const timeDisplay = document.getElementById('security-time');
+            const dataDisplay = document.getElementById('security-data');
+            
+            resultBox.classList.remove('hidden');
+            timeDisplay.textContent = 'Procesando...';
+            dataDisplay.textContent = '';
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch(`${ORDERS_SERVICE_URL}/api/v1/orders/${orderId}/items/${itemId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        notes: 'Actualizado desde frontend'
+                    })
+                });
+
+                const elapsedTime = performance.now() - startTime;
+                const data = await response.json();
+
+                if (response.status === 403) {
+                    timeDisplay.textContent = `❌ 403 Forbidden - Rol: ${userRole || 'UNKNOWN'}`;
+                    timeDisplay.className = 'time-display slow';
+                    dataDisplay.textContent = JSON.stringify(data, null, 2);
+                } else if (response.ok) {
+                    timeDisplay.textContent = `✅ 200 OK - Tiempo: ${elapsedTime.toFixed(2)} ms (Validación: ${data.validation_time_ms} ms)`;
+                    timeDisplay.className = 'time-display fast';
+                    dataDisplay.textContent = JSON.stringify(data, null, 2);
+                    loadOrder(); // Reload order
+                } else {
+                    timeDisplay.textContent = `Error ${response.status}`;
+                    timeDisplay.className = 'time-display slow';
+                    dataDisplay.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                const elapsedTime = performance.now() - startTime;
+                timeDisplay.textContent = 'Error: ' + error.message;
+                timeDisplay.className = 'time-display slow';
+                dataDisplay.textContent = error.toString();
+            }
+        }
+
+        // Delete item (requires GESTOR role)
+        async function deleteItem(orderId, itemId) {
+            if (!accessToken) {
+                alert('Debe autenticarse primero');
+                return;
+            }
+
+            if (!confirm('¿Está seguro de eliminar este ítem?')) {
+                return;
+            }
+
+            const resultBox = document.getElementById('security-result');
+            const timeDisplay = document.getElementById('security-time');
+            const dataDisplay = document.getElementById('security-data');
+            
+            resultBox.classList.remove('hidden');
+            timeDisplay.textContent = 'Procesando...';
+            dataDisplay.textContent = '';
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch(`${ORDERS_SERVICE_URL}/api/v1/orders/${orderId}/items/${itemId}/delete`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const elapsedTime = performance.now() - startTime;
+                let data = {};
+
+                if (response.status === 204) {
+                    data = { message: 'Item deleted successfully' };
+                } else {
+                    data = await response.json();
+                }
+
+                if (response.status === 403) {
+                    timeDisplay.textContent = `❌ 403 Forbidden - Rol: ${userRole || 'UNKNOWN'}`;
+                    timeDisplay.className = 'time-display slow';
+                    dataDisplay.textContent = JSON.stringify(data, null, 2);
+                } else if (response.status === 204 || response.ok) {
+                    timeDisplay.textContent = `✅ 204 No Content - Tiempo: ${elapsedTime.toFixed(2)} ms`;
+                    timeDisplay.className = 'time-display fast';
+                    dataDisplay.textContent = JSON.stringify(data, null, 2);
+                    loadOrder(); // Reload order
+                } else {
+                    timeDisplay.textContent = `Error ${response.status}`;
+                    timeDisplay.className = 'time-display slow';
+                    dataDisplay.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                const elapsedTime = performance.now() - startTime;
+                timeDisplay.textContent = 'Error: ' + error.message;
+                timeDisplay.className = 'time-display slow';
+                dataDisplay.textContent = error.toString();
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            initAuth0();
+            loadOrders();
+        });
+    </script>
+</body>
+</html>
+

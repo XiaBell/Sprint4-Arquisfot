@@ -1,0 +1,12 @@
+aws_region = "us-east-1"
+
+db_username = "provesi_admin"
+db_password = "CHANGE_ME_STRONG_PASSWORD"
+
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
+
+auth0_domain       = "your-tenant.auth0.com"
+auth0_audience     = "https://api.provesi.com"
+auth0_client_id    = "your_client_id"
+auth0_client_secret = "your_client_secret"
+
